@@ -10,12 +10,12 @@ class EncryptService{
 	private int $encryption_iv = 12345678;
 	private string $encryption;
 
-	public function encrypt(string $word): self
+	public function encrypt(string $word): string
 	{
 		$this->encryption = openssl_encrypt($word, $this->cipherMethod,
 		$this->encryption_key, $this->options, $this->encryption_iv);
 
-		return $this;
+		return $this->encryption;
 	}
 
 	public function decrypt(string $word): string|false

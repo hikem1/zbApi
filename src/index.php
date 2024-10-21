@@ -1,13 +1,17 @@
 <?php
 session_start();
 date_default_timezone_set('Europe/Paris');
-header("Access-Control-Allow-Origin: *");
+
+header("Access-Control-Allow-Origin: http://192.168.1.38:4200");
+header("Access-Control-Allow-Credentials: true");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
 require_once ('../vendor/autoload.php');
 use App\Service\ZbGraphLinkInstrumentService;
-use App\Service\ZbClient;
-use App\Service\EncryptService;
+use App\Service\ZbLoginService;
 use App\Service\ZbSearchInstrumentService;
+use App\Service\EncryptService;
 
 if($_SERVER['REQUEST_METHOD'] === 'GET'){
 
@@ -18,34 +22,32 @@ if($_SERVER['REQUEST_METHOD'] === 'GET'){
     }
     
     if(isset($_GET['id']) && isset($_GET['link'])){
-        $zbGraphLinkInstrumentService = new ZbGraphLinkInstrumentService($_GET);
-        $zbInstrumentGraphLink = $zbGraphLinkInstrumentService->findGraphLink();
+        $zbGraphLinkInstrumentService = new ZbGraphLinkInstrumentService($_GET['link']);
+        $zbInstrumentGraphLink = $zbGraphLinkInstrumentService->findGraphLink($_GET['id']);
         echo json_encode(["graph_link"=>$zbInstrumentGraphLink]);
     }
 }
 
 if($_SERVER['REQUEST_METHOD'] === 'POST'){
 
-    $post = json_decode(file_get_contents('php://input'), true);
+    $post = $_POST ? $_POST : json_decode(file_get_contents('php://input'), true);
 
-    if(isset($post['email']) && isset($post['password'])){
-        unset($_SESSION['session']);
-
+    if(isset($post['email'], $post['password'])){
+        unset($_SESSION);
+        $zbLoginService = new ZbLoginService();
         $encryptService = new EncryptService();
-        $encryptService = $encryptService->encrypt($post['password']);
-
-        $zbClient = new ZbClient();
-        $status = $zbClient->log($post['email'], $encryptService->getEncrypt());
+        $status = $zbLoginService->login($post['email'], $post['password'])->getLogStatus();
         
-        $_SESSION['session']['status'] = $status;
-
+        $_SESSION['status'] = $status;
         if($status){
-            $_SESSION['session']['user']['email'] = $post['email'];
-            $_SESSION['session']['user']['password'] = $encryptService->getEncrypt();
+            $_SESSION['user'] = $zbLoginService->getEmail();
+            $_SESSION['password'] = $encryptService->encrypt($post['password']);
         }else{
-            $_SESSION['session']['error'] = $zbClient->getLogError();
+            $_SESSION['error'] = $zbLoginService->getLogError();
         }
-        echo json_encode($_SESSION);
+        $session = $_SESSION;
+        unset($session['password']);
+        echo json_encode($session);
     }
 }
 
